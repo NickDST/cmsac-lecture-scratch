@@ -118,11 +118,43 @@ sg <- sg %>%
 sg %>% 
   ggplot() + 
   geom_point(aes(x = sequence_number, y = distance, size = scoring_play, shape = team_id, color = period_display_value)) +
-  labs(title = "Development of distance and success through the 4 quarters")
+  labs(title = "Development of distance and success through the 4 quarters",
+       x = "Sequence of shots", y = "distance from hoop")
 
 ```
 
 
+## Lets check it for each quarter
+
+First find the team that "won" and by how much 
+
+
+```{r}
+
+final_score_home <- sg$home_score[length(sg$home_score)]
+print(final_score_home)
+final_score_away <- sg$away_score[length(sg$away_score)]
+print(final_score_away)
+
+away_id <- sg$away_team_id[1]
+home_id <- sg$home_team_id[1]
+
+if ( final_score_home > final_score_away) {
+  winning_id = sg$home_team_id[1]
+  losing_id = sg$away_team_id[1]
+} else {
+  winning_id = sg$away_team_id[1]
+  losing_id = sg$home_team_id[1]
+}
+
+
+sg <- sg %>% 
+  mutate(win_id = case_when(team_id == winning_id ~ "win_team",
+                              team_id == losing_id ~ "lost_team"))
+
+sg
+
+```
 
 
 

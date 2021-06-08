@@ -1,0 +1,156 @@
+---
+title: "Lectuer5"
+author: "me"
+date: "6/8/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Purpose: Intro to 2D Visualizations
+
+```{r}
+
+library(tidyverse)
+abreu_batted_balls <- 
+  read_csv("http://www.stat.cmu.edu/cmsac/sure/2021/materials/data/xy_examples/abreu_2020_batted_balls.csv")
+head(abreu_batted_balls)
+
+```
+
+# Start Examining data
+
+```{r}
+
+abreu_batted_balls %>% 
+  ggplot(aes(x = exit_velocity , y = launch_angle)) +
+  geom_point() + 
+  theme_bw()
+
+```
+
+
+# Plotting Pitch Types
+
+```{r}
+
+table(abreu_batted_balls$pitch_type)
+
+```
+
+
+These type of categorical variables we can change the underlying
+order and what label each one is.
+
+```{r}
+
+head(abreu_batted_balls)
+## recode the labels for this pitch type
+## fct_recode allows me to change the levels of a categorical
+abreu_batted_balls <- abreu_batted_balls %>% 
+  mutate(pitch_type = fct_recode(pitch_type, "Changeup" = "CH", 
+                                 "Breaking Ball" = "CU",
+                                 "Fastball" = "FC", 
+                                 "Fastball" = "FF",
+                                 "Fastball" = "FS",
+                                 "Breaking Ball" = "KC",
+                                 "Fastball" = "SI",
+                                 "Breaking Ball" = "SL"))
+
+abreu_batted_balls <- abreu_batted_balls %>% 
+  mutate(new_pitch_type = case_when(
+    pitch_type == "CH" ~ "Changeup",
+    pitch_type %in% c("CU", "SL") ~ "Breaking ball",
+    TRUE ~ "Fastball"
+  ))
+
+
+head(abreu_batted_balls)
+```
+
+# Plotting 2-D Categorical Variables
+
+
+
+```{r}
+
+abreu_batted_balls %>% 
+  ggplot(aes(x = batted_ball_type, 
+             fill = pitch_type)) +
+  geom_bar() + 
+  theme_bw()
+
+
+```
+
+In this you can see the marginal distributions for the different batted ball types. 
+
+
+```{r}
+
+abreu_batted_balls %>% 
+  ggplot(aes(x = batted_ball_type, 
+             fill = pitch_type)) +
+  geom_bar(position = "dodge") + 
+  theme_bw()
+```
+The focus on this one is comparing the conditional distributions. 
+
+# Manually calculating the frequencies in R
+
+
+
+```{r}
+
+abreu_batted_balls %>% 
+  group_by(batted_ball_type, pitch_type) %>% 
+  count() # the same as summarize(n = n())
+
+```
+What is the joint distribution 
+
+```{r}
+
+abreu_batted_balls %>% 
+  group_by(batted_ball_type, pitch_type) %>% 
+  summarize(joint_prob = n() / nrow(abreu_batted_balls)) %>% 
+  pivot_wider(names_from = batted_ball_type,
+             values_from = joint_prob,
+             values_fill = 0)
+
+```
+
+You can see now there is no combination of change-up and pop-up. 
+
+```{r}
+
+abreu_batted_balls %>% 
+  group_by(batted_ball_type, pitch_type ) %>% 
+  summarize(count = n(), 
+            joint_prob = count / nrow(abreu_batted_balls)) %>% 
+  ggplot(aes(x = batted_ball_type, y = pitch_type)) + 
+  geom_tile(aes(fill = count), color = "white") + 
+  geom_text(aes(label = round(joint_prob, digits = 2)), color = "white") + 
+  scale_fill_viridis_b() + 
+  theme_bw()
+
+```
+# VCD
+
+```{r}
+
+library(vcd)
+
+mosaic(~ pitch_type + batted_ball_type, 
+       data = abreu_batted_balls)
+
+```
+
+
+
+
+
+
