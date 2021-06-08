@@ -1,0 +1,242 @@
+---
+title: "lecture4"
+author: "me"
+date: "6/7/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+
+library(tidyverse)
+abreu_batted_balls <- 
+  read_csv("http://www.stat.cmu.edu/cmsac/sure/2021/materials/data/xy_examples/abreu_2020_batted_balls.csv")
+head(abreu_batted_balls)
+
+
+```
+
+Pitch type
+batted ball type
+outcome (categorical)
+
+# Visualizing 1D categorical data -----------------
+
+```{r}
+
+abreu_batted_balls %>% 
+  ggplot(aes(x = batted_ball_type)) +
+  geom_bar() +
+  theme_bw()
+
+```
+
+The statistical transformation for the bar plot is the counting, it "counts" how much of
+each of the bar types and maps it to the y axis.
+
+This is displaying the marginal distribution of the categorical variable.
+
+If I want to display this as probabilities then I need to compute this seperately.
+
+```{r}
+
+abreu_batted_balls %>% 
+  ggplot(aes(x = batted_ball_type)) +
+  geom_bar(aes(y = after_stat(count) / sum(after_stat(count)))) + 
+  theme_bw()
+  
+
+```
+
+
+To do what we did above manually
+
+```{r}
+
+
+abreu_batted_balls %>% 
+  group_by(batted_ball_type) %>% 
+  summarize(count = n()) %>% 
+  ungroup() %>% 
+  mutate(total = sum(count), 
+         prop = count / total) %>% 
+  ggplot(aes(x = batted_ball_type)) +
+  geom_bar(aes(y = prop), stat="identity") + 
+  theme_bw()
+
+
+```
+
+This is the probability mass function of the probability type.
+
+How do we compute the standard error of the sampled probability of getting a fly ball
+
+```{r}
+
+abreu_batted_balls %>% 
+  group_by(batted_ball_type) %>% 
+  summarize(count = n()) %>% 
+  ungroup() %>% 
+  mutate(total = sum(count), 
+         prop = count / total,
+         se = sqrt(prop *  (1-prop) / total),
+         lower = prop - 2*se,
+         upper = prop + 2*se) %>% 
+  ggplot(aes(x = batted_ball_type)) +
+  geom_bar(aes(y = prop), stat="identity") + 
+  geom_errorbar(aes(ymin = lower, ymax = upper), color = "red") + 
+  theme_bw()
+
+```
+
+
+Interpretation of our confidence interval
+
+If i repeated this collection of data, and the proportion of flyballs, and i kept doing this over
+and over and over again, and then cosntruct an CI for each sample, then 95% of the CI's calculated will contain the true fixed parameter value. 
+
+95% of the intervals will contain the true value. 
+
+
+## Rearranging to alphebetical order:
+
+```{r}
+
+abreu_batted_balls %>% 
+  group_by(batted_ball_type) %>% 
+  summarize(count = n()) %>% 
+  ungroup() %>% 
+  mutate(total = sum(count), 
+         prop = count / total,
+         se = sqrt(prop *  (1-prop) / total),
+         lower = prop - 2*se,
+         upper = prop + 2*se,
+         batted_ball_type = fct_reorder(batted_ball_type, prop)) %>% 
+  ggplot(aes(x = batted_ball_type)) +
+  geom_bar(aes(y = prop), stat="identity") + 
+  geom_errorbar(aes(ymin = lower, ymax = upper), color = "red") + 
+  theme_bw()
+
+```
+
+# Continuous Variables ---------
+
+Center: mean, median, number, and location of modes
+Spread : range(max-min), quantiles, variance (std), etc
+Shape : skew vs symmetry, outliers
+
+```{r}
+
+summary(abreu_batted_balls$exit_velocity)
+
+sd(abreu_batted_balls$exit_velocity)
+
+abreu_batted_balls %>% 
+  ggplot(aes(y = exit_velocity)) +
+  geom_boxplot(aes(x = "")) +
+  theme_bw()+
+  coord_flip()
+
+
+```
+
+Boxplots are limited in that we don't know how many modes there are in the dataset. 
+
+It can be helpful but not all that useful in itself. 
+
+
+
+# histogram ---------
+
+Taking a variable
+Binning it
+Counting it
+
+It is an attempt of density estimation. Finding some way of smoothing data of a continuous variable.
+
+```{r}
+
+abreu_batted_balls %>% 
+  ggplot(aes(x = exit_velocity)) +
+  geom_histogram() +
+  theme_bw()
+
+```
+
+The box plots give me no sense of peaks in this histogram. 
+
+Within a particular range of values I've received the count for the certain amount of balls.
+
+Histograms are something you have to tune. You are choosing a statistical transformation
+
+
+How do I normalize it? 
+
+
+# Another way to display continuous distributions -----------
+
+```{r}
+
+library(ggbeeswarm)
+
+abreu_batted_balls %>% 
+  ggplot(aes(y = exit_velocity)) + 
+  geom_beeswarm(aes(x = ""),  cex = 3) + 
+  theme_bw() + 
+  coord_flip()
+
+```
+
+
+# Violin Plot -------
+
+Another display that works well with other displays is violin plots
+
+
+```{r}
+
+abreu_batted_balls %>% 
+  ggplot(aes(y = exit_velocity, x = "")) +
+  geom_violin() +
+  geom_boxplot(width = .2) +
+  geom_beeswarm(aes(x = ""),  cex = 3) + 
+  theme_bw() +
+  coord_flip()
+
+
+```
+
+
+# ECDF -----
+
+
+```{r}
+
+abreu_batted_balls %>% 
+   ggplot(aes(x = exit_velocity)) + 
+  geom_rug(alpha = 0.7) + 
+  stat_ecdf() +
+  theme_bw() + 
+  geom_hline(yintercept = 0.95, linetype = "dashed", color = "red")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

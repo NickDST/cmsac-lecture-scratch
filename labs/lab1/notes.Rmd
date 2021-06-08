@@ -1,0 +1,89 @@
+---
+title: "Lab1_notes_1"
+author: "me"
+date: "6/1/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+
+doRNG - You can download the old sources directly from the cran-r-project website. 
+
+
+```{r, warning = FALSE}
+
+# this is a way that you can set it up to prevent warnings
+print("Hello World")
+n = 20
+
+suppressMessages(library(tidyverse))
+```
+
+
+## Latex
+
+$$
+f (x) = \frac{1}{\sqrt{2\pi}} \exp \left( - \frac{x^2}{2} \right)
+$$
+
+
+## adjusting the heights and such
+
+You can play around with the heights and the widths of the markdown documents. 
+
+
+<!-- #```{r, warning = FALSE,fig.align='center',fig.height='3in'} -->
+<!-- plot(1:10, 1:10) -->
+<!-- ``` -->
+
+
+
+---
+# Basics of R 
+
+Vector is a collection of the same types.
+
+List is a collection that can collect every type.
+
+
+
+```{r}
+
+t = 0.1 + 0.05
+print(t)
+
+t == 0.15
+
+"hey" == "hey"
+
+```
+
+
+
+```{r}
+
+# nba <- read_csv("http://www.stat.cmu.edu/cmsac/sure/2021/materials/data/intro_r/nba_2021_player_stats.csv")
+# head(nba)
+```
+
+
+## set woorking directory
+
+```{r}
+
+
+library(usethis)
+
+use_git_config(user.name = "NickDST", user.email = "learningnickk@gmail.com")
+
+```
+
+
+
+
+

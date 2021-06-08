@@ -1,0 +1,130 @@
+---
+title: "EDA-pt1"
+author: "me"
+date: "6/7/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading in the data:
+```{r}
+# To download the data
+# if you would prefer devtools installation
+if (!requireNamespace('devtools', quietly = TRUE)){
+  install.packages('devtools')
+}
+# Alternatively, using the devtools package:
+devtools::install_github(repo = "saiemgilani/wehoop")
+
+
+
+
+```
+
+
+
+```{r}
+
+library(wehoop)
+library(tidyverse)
+wnba_pbp_data <- load_wnba_pbp(2021)
+
+wnba_pbp_data
+
+# Get the shots and clean this data a bit:
+wnba_shots_data <- wnba_pbp_data %>%
+  filter(shooting_play)
+# Remove unnecessary columns:
+wnba_shots_data <- wnba_shots_data %>%
+  dplyr::select(-shooting_play, -id, -participants_2_athlete_id,
+                -type_abbreviation, -season, -season_type, 
+                -home_team_spread, -game_spread, -home_favorite)
+
+
+wnba_shots_data
+
+```
+
+## Filtering the data
+
+```{r}
+wsd <-wnba_shots_data
+
+list_of_games <- unique(wsd$game_id)
+
+## grabbing data from a single game
+single_game <- wsd %>% 
+  filter(game_id == "401320565")
+
+single_game
+
+```
+
+## Todo List ----
+
+1. Try to graph the x, y, and color base on success
+2. Number of Successes per Quarter
+3. 
+
+four 10 minute quarters 
+2 quarters per halves
+
+
+```{r}
+
+sg <- single_game %>% 
+  mutate(distance = sqrt((coordinate_x-25)^2 + coordinate_y^2)) %>% 
+  filter(coordinate_x > 0 & coordinate_y > 0)
+
+
+sg %>% 
+  ggplot() + 
+  geom_point(aes(x = coordinate_x, y = coordinate_y, color = distance))
+
+
+```
+
+```{r}
+
+sg <- sg %>% 
+  mutate(sequence_number = as.integer(sequence_number))
+
+sg_q1 <- sg %>% 
+  filter(period_display_value == "1st Quarter")
+
+
+sg %>% 
+  ggplot() + 
+  geom_point(aes(x = sequence_number, y = distance, shape = team_id, color = period_display_value)) +
+  labs(title = "Development of distance through the 4 quarters")
+
+
+```
+
+## Test ----
+
+```{r}
+
+library(lubridate)
+
+sg
+sg <- sg %>% 
+  arrange(sequence_number)
+
+
+sg %>% 
+  ggplot() + 
+  geom_point(aes(x = sequence_number, y = distance, size = scoring_play, shape = team_id, color = period_display_value)) +
+  labs(title = "Development of distance and success through the 4 quarters")
+
+```
+
+
+
+
+
+
+
