@@ -1,0 +1,143 @@
+---
+title: "EDA-pt2-sum"
+author: "me"
+date: "6/8/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+### Loading The Libraries and Preparing the data
+
+```{r}
+
+library(wehoop)
+library(tidyverse)
+library(lubridate)
+
+## Preparing the data ----------------
+
+
+wnba_pbp_data <- load_wnba_pbp(2021)
+
+# Get the shots and clean this data a bit:
+wnba_shots_data <- wnba_pbp_data %>%
+  filter(shooting_play)
+# Remove unnecessary columns:
+wnba_shots_data <- wnba_shots_data %>%
+  dplyr::select(-shooting_play, -id, -participants_2_athlete_id,
+                -type_abbreviation, -season, -season_type, 
+                -home_team_spread, -game_spread, -home_favorite)
+
+
+## Loading the data for a single game ----------------
+
+wsd <-wnba_shots_data
+
+list_of_games <- unique(wsd$game_id)
+
+single_game <- wsd %>% 
+  filter(game_id == "401320566")
+#game 1: 401320565
+
+## Loading the data for a single game ----------------
+
+sg <- single_game %>% 
+  mutate(distance = sqrt((coordinate_x-25)^2 + coordinate_y^2)) %>% 
+  filter(coordinate_x > 0 & coordinate_y > 0) %>% 
+  mutate(sequence_number = as.integer(sequence_number))
+
+
+## Add the time (min:sec) column to the game data ----------------
+
+sg <- sg %>% 
+  # select(clock_minutes, clock_seconds, period_number, away_score, home_score) %>% 
+  mutate(seconds_elapsed_game = 600 - (as.integer(clock_minutes) * 60 + as.integer(clock_seconds))) %>% 
+  mutate(seconds_with_period = (period_number - 1) * 10 * 60 + seconds_elapsed_game) %>% 
+  mutate(time_corrected = seconds_to_period(seconds_with_period))
+
+
+
+## Adding the winning team identifier column ----------------
+
+final_score_home <- sg$home_score[length(sg$home_score)]
+print(final_score_home)
+final_score_away <- sg$away_score[length(sg$away_score)]
+print(final_score_away)
+
+away_id <- sg$away_team_id[1]
+home_id <- sg$home_team_id[1]
+
+if ( final_score_home > final_score_away) {
+  winning_id = sg$home_team_id[1]
+  losing_id = sg$away_team_id[1]
+} else {
+  winning_id = sg$away_team_id[1]
+  losing_id = sg$home_team_id[1]
+}
+
+
+sg <- sg %>% 
+  mutate(win_team_id = case_when(team_id == winning_id ~ "win_team",
+                              team_id == losing_id ~ "lost_team"))
+
+
+
+## Final Cleanups ----------------------
+
+## This is the final dataset that has:
+### 1. a win_team_id column that just says whether they are the winning or losing team
+### 2. a time_corrected column in lubridate that allows for time series graphing. Make sure to include + scale_x_time() in graphing!
+
+df <- sg %>% 
+  select(-c( 'sequence_number', 'period_display_value', "participants_0_athlete_id", "participants_1_athlete_id", "away_team_mascot",
+             "away_team_name_alt", "home_team_name_alt", "away_team_name", "home_team_mascot", "home_team_name", "lag_half", "lead_half",
+             "seconds_elapsed_game", "seconds_with_period", "clock_minutes", "clock_seconds", "half", "game_play_number"))
+
+```
+
+
+
+# Graphing the time series data base
+
+```{r}
+
+sg %>% 
+  ggplot() +
+  geom_point(aes(x = time_corrected, y = away_score , color = "away")) + 
+  geom_point(aes(x = time_corrected, y = home_score , color = "home")) + 
+  scale_x_time() +
+  labs(title = "Score Over time") + 
+  theme_bw()
+
+
+sg %>% 
+  ggplot() + 
+  geom_vline(xintercept = 600, linetype="dotted", color = "blue", size=1.5) + 
+  geom_vline(xintercept = 600*2, linetype="dotted", color = "blue", size=1.5) + 
+  geom_vline(xintercept = 600*3, linetype="dotted", color = "blue", size=1.5) + 
+  geom_point(aes(x = time_corrected, y = distance, shape = win_team_id, size = scoring_play, color = win_team_id)) +
+  scale_x_time() +
+  labs(title = "Development of distance through the 4 quarters for 1 game", y = "Distance From Hoop", x = "Time") + 
+  theme_bw()
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+

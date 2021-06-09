@@ -121,6 +121,7 @@ sg %>%
   labs(title = "Development of distance and success through the 4 quarters",
        x = "Sequence of shots", y = "distance from hoop")
 
+
 ```
 
 
@@ -152,9 +153,123 @@ sg <- sg %>%
   mutate(win_id = case_when(team_id == winning_id ~ "win_team",
                               team_id == losing_id ~ "lost_team"))
 
-sg
+
+sg %>% 
+  ggplot() + 
+  geom_point(aes(x = sequence_number, y = distance, size = scoring_play, shape = win_id, color = period_display_value)) +
+  labs(title = "Development of distance and success through the 4 quarters",
+       x = "Sequence of shots", y = "distance from hoop")
 
 ```
+
+
+Graphing the score alongisde this:
+
+```{r}
+
+
+library(reshape2)
+
+sscores <- sg %>% 
+  select(away_score, home_score, sequence_number)
+         
+sscores
+
+sg
+
+sg %>% 
+  ggplot() +
+  geom_point(aes(x = sequence_number, y = home_score))
+
+
+#melt data frame into long format
+sscores <-melt(sscores ,  id.vars = 'sequence_number', variable.name = 'series')
+
+library(lubridate)
+# a <- ms("10:00") - ms("1:05") # "9M -5S"
+# b <- ms("	9 : 37")
+# a
+# a <- ms("5600") 
+# a
+# (a * 4) + b
+
+minute(a) # gives 9 
+
+tenmin - b
+
+sscores %>% 
+  ggplot() +
+  geom_point(aes(x = sequence_number, y = value, color = series))
+
+sgt <- sg %>% 
+  select(clock_minutes, clock_seconds, period_number, away_score, home_score) %>% 
+  mutate(seconds_elapsed_game = 600 - (as.integer(clock_minutes) * 60 + as.integer(clock_seconds))) %>% 
+  mutate(seconds_with_period = (period_number - 1) * 10 * 60 + seconds_elapsed_game) %>% 
+  mutate(lubed_time = seconds_to_period(seconds_with_period))
+
+sscores <- sgt %>% 
+  select(away_score, home_score, lubed_time) 
+
+# pivot_longer(sscores, !lubed_time ,names_to = "lubed_time", values_to = "val")
+
+# melt(sscores ,  id.vars = 'lubed_time', variable.name = 'series')
+
+sscores %>% 
+  ggplot() +
+  geom_point(aes(x = lubed_time, y = away_score , color = "darkorange")) + 
+  geom_point(aes(x = lubed_time, y = home_score , color = "darkblue")) + 
+  scale_x_time()
+
+
+
+melt(sscores, "lubed_time")
+
+sscores %>% 
+  ggplot() +
+  geom_point(aes(x = lubed_time, y = value, color = series)) + scale_x_time()
+
+
+# ms(sscores$lubed_time)
+
+
+# (sscores$lubed_time)
+```
+
+
+## Change the data to time series dat
+
+
+```{r}
+
+library(lubridate)
+td <- seconds_to_period(1532)
+
+td
+
+
+# Libraries
+library(ggplot2)
+library(dplyr)
+
+# Dummy data
+data <- data.frame(
+  day = as.Date("2017-06-14") - 0:364,
+  value = runif(365) + seq(-140, 224)^2 / 10000
+)
+
+data
+
+# Most basic bubble plot
+p <- ggplot(data, aes(x=day, y=value)) +
+  geom_line() + 
+  xlab("")
+p
+
+```
+
+
+
+
 
 
 

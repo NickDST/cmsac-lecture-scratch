@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Purpose: Intro to 2D Visualizations
 
-```{r}
+```{r echo=FALSE}
 
 library(tidyverse)
 abreu_batted_balls <- 
@@ -149,6 +149,94 @@ mosaic(~ pitch_type + batted_ball_type,
 
 ```
 
+
+# Continuous with Categorical Variables
+
+```{r}
+
+abreu_batted_balls %>% 
+  ggplot(aes( y = exit_velocity, x = pitch_type)) + 
+  geom_violin() + 
+  geom_boxplot(width=.2) + 
+  theme_bw()
+
+```
+```{r}
+
+abreu_batted_balls %>% 
+  ggplot(aes( x = exit_velocity, color = pitch_type)) + 
+  stat_ecdf()+
+  theme_bw() +
+  theme(legend.position = "bottom") + 
+  labs(x = "Exit velocity",
+       y = "Conditional proportion of batted balls")
+
+```
+
+
+## Histogram
+
+```{r}
+abreu_batted_balls %>% 
+  ggplot(aes(x = exit_velocity, fill = pitch_type, color = pitch_type)) +
+  geom_histogram(position = "identity", alpha = 0.25) + 
+  theme_bw() + 
+  theme(legend.position = "bottom")
+
+```
+
+```{r}
+
+abreu_batted_balls %>% 
+  ggplot(aes(x = exit_velocity, color = pitch_type)) + 
+  geom_freqpoly() + 
+  theme_bw() + 
+  theme(legend.position = "bottom")
+
+
+```
+
+# Facet (subplots)
+
+```{r}
+
+abreu_batted_balls %>% 
+  ggplot(aes(x = exit_velocity)) + 
+  geom_histogram() + 
+  theme_bw() + 
+  facet_wrap(~ pitch_type, ncol = 2 ) #take my continuous variable and display it based on a categorical variable
+
+```
+
+```{r}
+abreu_batted_balls %>% 
+  ggplot(aes(x = exit_velocity)) + 
+  geom_histogram() + 
+  theme_bw() + 
+  facet_grid(pitch_type ~ . , margins = TRUE) 
+
+abreu_batted_balls %>% 
+  ggplot(aes(x = exit_velocity)) + 
+  geom_histogram() + 
+  theme_bw() + 
+  facet_grid(pitch_type ~ batted_ball_type , margins = TRUE) 
+
+```
+
+```{r}
+
+library(ggthemes)
+
+abreu_batted_balls %>% 
+  ggplot(aes(x = pitch_type, fill = batted_ball_type)) + 
+  geom_bar() + 
+  theme_bw() + 
+  facet_wrap(~ outcome, ncol = 5) +
+  theme(legend.position = "bottom") + 
+  ggthemes::scale_fill_colorblind()
+  
+
+```
 
 
 
