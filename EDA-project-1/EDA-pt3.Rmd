@@ -1,0 +1,140 @@
+---
+title: "EDA-pt3-find-best"
+author: "me"
+date: "6/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 
+
+```{r}
+
+library(wehoop)
+library(tidyverse)
+library(lubridate)
+
+## Preparing the data ----------------
+
+
+wnba_pbp_data <- load_wnba_pbp(2021)
+
+# Get the shots and clean this data a bit:
+wnba_shots_data <- wnba_pbp_data %>%
+  filter(shooting_play)
+# Remove unnecessary columns:
+wnba_shots_data <- wnba_shots_data %>%
+  dplyr::select(-shooting_play, -id, -participants_2_athlete_id,
+                -type_abbreviation, -season, -season_type, 
+                -home_team_spread, -game_spread, -home_favorite)
+
+
+## Loading the data for a single game ----------------
+
+wsd <-wnba_shots_data
+
+list_of_games <- unique(wsd$game_id)
+list_of_teams <- unique(wsd$team_id)
+list_teams_abv <- unique(c(unique(wsd$home_team_abbrev) , unique(wsd$away_team_abbrev)))
+
+length(list_teams_abv)
+
+length(unique(c(unique(wsd$home_team_abbrev) , unique(wsd$away_team_abbrev))))
+
+
+wsd <- wsd %>% 
+  mutate(distance = sqrt((coordinate_x-25)^2 + coordinate_y^2)) %>% 
+  filter(coordinate_x > 0 & coordinate_y > 0) %>% 
+  mutate(sequence_number = as.integer(sequence_number))
+
+
+wsd <- wsd %>% 
+  # select(clock_minutes, clock_seconds, period_number, away_score, home_score) %>% 
+  mutate(seconds_elapsed_game = 600 - (as.integer(clock_minutes) * 60 + as.integer(clock_seconds))) %>% 
+  mutate(seconds_with_period = (period_number - 1) * 10 * 60 + seconds_elapsed_game) %>% 
+  mutate(time_corrected = seconds_to_period(seconds_with_period))
+
+
+```
+
+
+
+```{r}
+
+## grab the teams with the most wins
+### cycle through each game, increase the win of each team by 1
+
+payload = c()
+for (team in list_teams_abv) {
+  payload[team] = 0
+}
+
+
+for (game in list_of_games){
+  # print(game)
+  
+  sg <- wsd %>% 
+    filter(game_id == game)
+  
+  final_score_home <- sg$home_score[length(sg$home_score)]
+  # print(final_score_home)
+  final_score_away <- sg$away_score[length(sg$away_score)]
+  # print(final_score_away)
+  
+  home_id <- sg$home_team_id[1]
+  away_id <- sg$away_team[1]
+  
+  # typeof(home_id)
+  
+  home_team_abbrev <- sg$home_team_abbrev[1]
+  away_team_abbrev <- sg$away_team_abbrev[1]
+  
+  if ( final_score_home > final_score_away) {
+    payload[home_team_abbrev] = payload[home_team_abbrev] + 1
+  } else {
+    payload[home_team_abbrev] = payload[home_team_abbrev] + 1
+  }
+  
+}
+
+data.frame(payload) %>% arrange(desc(payload))
+
+## the top teams are SEA, CHI, NY, MIN, WSH, CONN
+```
+
+
+```{r}
+
+sea_game <- wsd %>% 
+  filter(home_team_abbrev == "SEA" | away_team_abbrev == "SEA") 
+
+
+## point chart of the seattle in quarter 1, color base on game, size based on success
+
+
+
+
+```
+
+
+
+
+
+
+
+```{r}
+test = c()
+test["2"] = 3
+test
+
+payload["5"] = payload["5"] + 1
+list_of_teams
+
+```
+
+
+
+

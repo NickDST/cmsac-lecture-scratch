@@ -33,16 +33,29 @@ wnba_shots_data <- wnba_shots_data %>%
                 -type_abbreviation, -season, -season_type, 
                 -home_team_spread, -game_spread, -home_favorite)
 
-
+write.csv(wnba_shots_data,'WNBA_shot_data.csv')
 ## Loading the data for a single game ----------------
 
 wsd <-wnba_shots_data
 
+list_of_SEA_won_games <- c(401320570, 401320578, 401320583, 401320590, 401320595, 401320605, 401320610, 401320617) # removed: none
 list_of_games <- unique(wsd$game_id)
 
+##### looping through the 8 games and added them up together
+
+# initializing empty dataframe
+sea_wgames = data.frame()
+
+for (curr_game in list_of_SEA_won_games) {
+  print(paste("=> curr game: ", curr_game))
+
+
 single_game <- wsd %>% 
-  filter(game_id == "401320566")
-#game 1: 401320565
+  filter(game_id == curr_game)
+#game 1: 401320570 401320578 401320583 401320590 401320595 401320605 401320610 401320617
+
+sea_games <- wsd %>% 
+  filter()
 
 ## Loading the data for a single game ----------------
 
@@ -65,27 +78,41 @@ sg <- sg %>%
 ## Adding the winning team identifier column ----------------
 
 final_score_home <- sg$home_score[length(sg$home_score)]
-print(final_score_home)
+# print(final_score_home)
 final_score_away <- sg$away_score[length(sg$away_score)]
-print(final_score_away)
+# print(final_score_away)
 
 away_id <- sg$away_team_id[1]
 home_id <- sg$home_team_id[1]
 
+away_abbrv <- sg$away_team_abbrev[1]
+home_abbrv <- sg$home_team_abbrev[1]
+
 if ( final_score_home > final_score_away) {
   winning_id = sg$home_team_id[1]
   losing_id = sg$away_team_id[1]
+  win_abbrv = home_abbrv
+  lose_abbrv = away_abbrv
 } else {
   winning_id = sg$away_team_id[1]
   losing_id = sg$home_team_id[1]
+  win_abbrv = away_abbrv
+  lose_abbrv = home_abbrv
+}
+
+sg <- sg %>% 
+  mutate(wl_abbrv = case_when(team_id == winning_id ~ paste(win_abbrv, "(W)"),
+                              team_id == losing_id ~ paste(lose_abbrv, "(L)")),
+         game_title = paste(paste(win_abbrv, "(W) vs",paste(lose_abbrv, "(L)"))))
+
+print(paste(paste(win_abbrv, "(W) vs",paste(lose_abbrv, "(L)"))))
+
+sea_wgames = rbind(sea_wgames, sg)
 }
 
 
-sg <- sg %>% 
-  mutate(win_team_id = case_when(team_id == winning_id ~ "win_team",
-                              team_id == losing_id ~ "lost_team"))
-
-
+## sanity check that the final dataset is what we wanted
+unique(sea_wgames$game_id)
 
 ## Final Cleanups ----------------------
 
@@ -93,10 +120,10 @@ sg <- sg %>%
 ### 1. a win_team_id column that just says whether they are the winning or losing team
 ### 2. a time_corrected column in lubridate that allows for time series graphing. Make sure to include + scale_x_time() in graphing!
 
-df <- sg %>% 
-  select(-c( 'sequence_number', 'period_display_value', "participants_0_athlete_id", "participants_1_athlete_id", "away_team_mascot",
-             "away_team_name_alt", "home_team_name_alt", "away_team_name", "home_team_mascot", "home_team_name", "lag_half", "lead_half",
-             "seconds_elapsed_game", "seconds_with_period", "clock_minutes", "clock_seconds", "half", "game_play_number"))
+# df <- sg %>% 
+#   select(-c( 'sequence_number', 'period_display_value', "participants_0_athlete_id", "participants_1_athlete_id", "away_team_mascot",
+#              "away_team_name_alt", "home_team_name_alt", "away_team_name", "home_team_mascot", "home_team_name", "lag_half", "lead_half",
+#              "seconds_elapsed_game", "seconds_with_period", "clock_minutes", "clock_seconds", "half", "game_play_number"))
 
 ```
 
@@ -106,8 +133,13 @@ df <- sg %>%
 
 ```{r}
 
+
+
 sg %>% 
   ggplot() +
+  geom_vline(xintercept = 600, linetype="dotted", color = "blue", size=1.5) + 
+  geom_vline(xintercept = 600*2, linetype="dotted", color = "blue", size=1.5) + 
+  geom_vline(xintercept = 600*3, linetype="dotted", color = "blue", size=1.5) + 
   geom_point(aes(x = time_corrected, y = away_score , color = "away")) + 
   geom_point(aes(x = time_corrected, y = home_score , color = "home")) + 
   scale_x_time() +
@@ -116,25 +148,188 @@ sg %>%
 
 
 sg %>% 
+  filter(distance <= 30) %>% 
   ggplot() + 
-  geom_vline(xintercept = 600, linetype="dotted", color = "blue", size=1.5) + 
-  geom_vline(xintercept = 600*2, linetype="dotted", color = "blue", size=1.5) + 
-  geom_vline(xintercept = 600*3, linetype="dotted", color = "blue", size=1.5) + 
+  geom_vline(xintercept = 600, , color = "blue", size=1.5, alpha = 0.3) + 
+  geom_vline(xintercept = 600*2, , color = "blue", size=1.5, alpha = 0.3)+ 
+  geom_vline(xintercept = 600*3, , color = "blue", size=1.5, alpha = 0.3) + 
+  geom_point(aes(x = time_corrected, y = distance, shape = wl_abbrv, size = scoring_play, color = wl_abbrv)) +
+  scale_x_time() +
+  labs(title = "Development of distance through the 4 quarters for 1 game", y = "Distance From Hoop", x = "Time") + 
+  theme_bw()
+
+
+# total_games <- c(401320570, 401320578, 401320583, 401320590, 401320595, 401320605, 401320610, 401320617)
+games_of_interest <-  c(401320570)
+
+sea_wgames %>% 
+  filter(game_id %in% games_of_interest) %>% 
+  ggplot() + 
+  geom_vline(xintercept = 600, , color = "blue", size=1.5, alpha = 0.3) + 
+  geom_vline(xintercept = 600*2, , color = "blue", size=1.5, alpha = 0.3)+ 
+  geom_vline(xintercept = 600*3, , color = "blue", size=1.5, alpha = 0.3) + 
+  geom_point(aes(x = time_corrected, y = distance, shape = wl_abbrv, size = scoring_play, color = wl_abbrv)) +
+  scale_shape_manual(values=c(16, 17, 19)) +
+  scale_x_time() +
+  # facet_wrap(~ game_title, ncol = 2) +
+  labs(title = "Development of distance through the 4 quarters for 1 game", y = "Distance From Hoop", x = "Time") + 
+  theme_bw()
+
+
+delta_distance_per_window = c()
+
+for ( i in seq(1,40)){
+  
+  start_sec <- 60 * (i -1)
+  end_sec <-  60 * (i)
+  
+  temp <- sea_wgames %>% 
+    filter(game_id %in% games_of_interest) %>%
+    filter(time_corrected > start_sec & time_corrected < end_sec) 
+  
+  win_distance = mean(filter(temp, wl_abbrv == "SEA (W)")$distance)
+  other_distance = mean(filter(temp, wl_abbrv != "SEA (W)")$distance)
+  
+  if(is.na(win_distance)){win_distance <-  0}
+  if(is.na(other_distance)){other_distance <-  0}
+  
+  dist_delta <- win_distance - other_distance
+  
+  delta_distance_per_window[i] = dist_delta
+  
+}
+
+min_df = data.frame(minute = seq(1,40), delta_distance_per_window)
+
+min_df %>% 
+  ggplot()
+  
+
+```
+
+Observations:
+
+1. There appears to be shared "steps" where both teams would score. And then they would both, not score. 
+
+
+```{r}
+
+sg %>%
+  filter(period_number == 1 & distance <= 30) %>%
+  ggplot(aes(x = distance, color = win_team_id)) +
+  geom_histogram(size = 1, position = "dodge") +
+  theme_bw()
+
+sg %>%
+  filter(period_number == 2 & distance <= 30) %>%
+  ggplot(aes(x = distance, color = win_team_id)) +
+  geom_freqpoly() +
+  theme_bw()
+
+```
+
+# trying out the hidden markov model
+
+
+```{r}
+
+## quick test
+
+winSG_G <-  sg %>% 
+  filter(win_team_id == "win_team")
+
+winSG <-  sg %>% 
+  filter(win_team_id == "win_team") %>% 
+  dplyr::select(sequence_number, distance)
+
+winSG_G %>% 
+  ggplot() + 
+  geom_vline(xintercept = 600, , color = "blue", size=1.5, alpha = 0.3) + 
+  geom_vline(xintercept = 600*2, , color = "blue", size=1.5, alpha = 0.3) + 
+  geom_vline(xintercept = 600*3, , color = "blue", size=1.5, alpha = 0.3) + 
   geom_point(aes(x = time_corrected, y = distance, shape = win_team_id, size = scoring_play, color = win_team_id)) +
   scale_x_time() +
   labs(title = "Development of distance through the 4 quarters for 1 game", y = "Distance From Hoop", x = "Time") + 
   theme_bw()
 
 
+HMM_distance_classify <- function(sg, team_wlabbrv) {
+  focus_SG <- sg %>% 
+    filter(wl_abbrv == team_wlabbrv) %>% 
+    dplyr::select(team, distance)
+  
+}
+
+
+
+
+
+library("depmixS4")
+mod <- depmix(response = distance ~ 1, data = winSG, nstates = 3)
+fm = fit(mod)
+
+summary(fm)
+
+```
+
+```{r}
+prstates = apply(posterior(fm)[,c("S1", "S2", "S3")], 1, which.max)
+
+plot(prstates, type = "b", xlab = "Time", ylab = "State")
+
+t_state = posterior(fm)["state"]
+
+mu = summary(fm)[,1]
+mu[2]
+
+
+# viterbi(fm) == posterior(fm)
+
+winSG_G$state = as.factor(prstates)
+
+mu = summary(fm)[,1]
+winSG_G$truMU = mu[prstates]
+
+winSG_G %>% 
+  ggplot() + 
+  geom_vline(xintercept = 600, , color = "blue", size=1.5, alpha = 0.3) + 
+  geom_vline(xintercept = 600*2, , color = "blue", size=1.5, alpha = 0.3) + 
+  geom_vline(xintercept = 600*3, , color = "blue", size=1.5, alpha = 0.3) + 
+  geom_point(aes(x = time_corrected, y = distance, shape = win_team_id, size = scoring_play, color = state)) +
+  geom_line(aes(x = time_corrected, y = truMU)) +
+  scale_x_time() +
+  labs(title = "Hidden Markov Model Prediction of Distance changes over 4 quarters", y = "Distance From Hoop", x = "Time") + 
+  theme_bw()
+
 ```
 
 
+## trying out animations
+
+```{r}
+
+# https://goodekat.github.io/presentations/2019-isugg-gganimate-spooky/slides.html#48
+library(glue)
+name <- "Fred"
+glue("{name}")
+
+sg %>% 
+  ggplot() + 
+  geom_point(aes(x = coordinate_x, y = coordinate_y, color = wl_abbrv, group = sequence_number)) + # 
+  labs(title = "test", subtitle =  "test: {frame_along}") +
+  transition_reveal(along = sequence_number) 
+  # shadow_wake(wake_length = 0.1, alpha = 0.5)
+  # transition_states(time_corrected, transition_length = 1, state_length = 1)
+  # transition_time(time = time_corrected)
 
 
+sg %>% 
+  ggplot() + 
+  geom_point(aes(x = coordinate_x, y = coordinate_y, color = wl_abbrv)) +
+  labs(title = "test", subtitle =  "test: {frame_along}") 
+animate(anim, nframes = 200, fps = 2)
 
-
-
-
+```
 
 
 
