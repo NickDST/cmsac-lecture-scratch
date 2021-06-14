@@ -111,6 +111,15 @@ sea_wgames = rbind(sea_wgames, sg)
 }
 
 
+sea_wgames %>% 
+  mutate(coordinate_x = coordinate_x - 25)
+
+
+sea_wgames <- sea_wgames %>% 
+  mutate(theta = acos(coordinate_x / distance) * (180 / pi))
+
+
+
 ## sanity check that the final dataset is what we wanted
 unique(sea_wgames$game_id)
 
@@ -160,10 +169,10 @@ sg %>%
 
 
 # total_games <- c(401320570, 401320578, 401320583, 401320590, 401320595, 401320605, 401320610, 401320617)
-games_of_interest <-  c(401320570)
+games_of_interest <-  c(401320583)
 
 sea_wgames %>% 
-  filter(game_id %in% games_of_interest) %>% 
+  filter(game_id %in% games_of_interest & period_number < 5) %>% 
   ggplot() + 
   geom_vline(xintercept = 600, , color = "blue", size=1.5, alpha = 0.3) + 
   geom_vline(xintercept = 600*2, , color = "blue", size=1.5, alpha = 0.3)+ 
@@ -176,41 +185,473 @@ sea_wgames %>%
   theme_bw()
 
 
-delta_distance_per_window = c()
 
-for ( i in seq(1,40)){
-  
-  start_sec <- 60 * (i -1)
-  end_sec <-  60 * (i)
-  
-  temp <- sea_wgames %>% 
-    filter(game_id %in% games_of_interest) %>%
-    filter(time_corrected > start_sec & time_corrected < end_sec) 
-  
-  win_distance = mean(filter(temp, wl_abbrv == "SEA (W)")$distance)
-  other_distance = mean(filter(temp, wl_abbrv != "SEA (W)")$distance)
-  
-  if(is.na(win_distance)){win_distance <-  0}
-  if(is.na(other_distance)){other_distance <-  0}
-  
-  dist_delta <- win_distance - other_distance
-  
-  delta_distance_per_window[i] = dist_delta
-  
-}
+sea_wgames %>% 
+  filter(game_id %in% games_of_interest & period_number < 5) %>% 
+  ggplot() + 
+  geom_vline(xintercept = 600, , color = "blue", size=1.5, alpha = 0.3) + 
+  geom_vline(xintercept = 600*2, , color = "blue", size=1.5, alpha = 0.3)+ 
+  geom_vline(xintercept = 600*3, , color = "blue", size=1.5, alpha = 0.3) + 
+  geom_point(aes(x = time_corrected, y = theta, shape = wl_abbrv, size = scoring_play, color = wl_abbrv)) +
+  scale_shape_manual(values=c(16, 17, 19)) +
+  scale_x_time() +
+  # facet_wrap(~ game_title, ncol = 2) +
+  labs(title = "Development of theta through the 4 quarters for 1 game", y = "Distance From Hoop", x = "Time") + 
+  theme_bw()
 
-min_df = data.frame(minute = seq(1,40), delta_distance_per_window)
-
-min_df %>% 
-  ggplot()
-  
 
 ```
 
-Observations:
 
-1. There appears to be shared "steps" where both teams would score. And then they would both, not score. 
+``` {r}
 
+### grabbing and graphing the delta distance trajectories so that I can cluster them
+
+total_games <- c(401320570, 401320578, 401320583, 401320590, 401320595, 401320605, 401320610, 401320617)
+games_of_interest <-  c(401320570)
+
+distance_df <- data.frame()
+sea_df <- data.frame()
+
+for ( curr_game_id in total_games){
+  print(curr_game_id)
+  
+  curr_game <- sea_wgames %>% 
+    filter(game_id == curr_game_id)
+  
+  sea_traj = c()
+  delta_distance_per_window = c()
+
+  for ( i in seq(1,40)){
+    
+    start_sec <- 60 * (i - 1)
+    end_sec <-  60 * (i)
+    
+    temp <- curr_game %>%
+      filter(time_corrected > start_sec & time_corrected < end_sec) 
+    
+    win_distance_hit = sum(filter(temp, (wl_abbrv == "SEA (W)") & scoring_play == TRUE)$distance)
+    win_distance_miss = sum(filter(temp, (wl_abbrv == "SEA (W)") & scoring_play == FALSE)$distance)
+    
+    other_distance_hit = sum(filter(temp, (wl_abbrv != "SEA (W)") & scoring_play == TRUE)$distance)
+    other_distance_miss = sum(filter(temp, (wl_abbrv != "SEA (W)") & scoring_play == FALSE)$distance)
+    
+    if(is.na(win_distance_hit)){win_distance <-  0}
+    if(is.na(win_distance_miss)){other_distance <- 0}
+    if(is.na(other_distance_hit)){win_distance <-  0}
+    if(is.na(other_distance_miss)){other_distance <- 0}
+    
+    win_distance = win_distance_hit * 1 + win_distance_miss
+    other_distance = other_distance_hit * 1 + other_distance_miss
+    
+    dist_delta <- win_distance - other_distance
+    
+    delta_distance_per_window[i] = dist_delta
+    
+    ## just grabbing the seattle distance evolution 
+    sea_traj[i] = sum(filter(temp, (wl_abbrv == "SEA (W)"))$distance) ## alternate between mean and sum
+    
+  }
+  min_df = data.frame(minute = seq(1,40), delta_distance_per_window, game_id = as.factor(curr_game_id))
+  sea_min_df = data.frame(minute = seq(1,40), sea_traj, game_id = as.factor(curr_game_id))
+  
+  distance_df <- rbind(distance_df , min_df)
+  sea_df <- rbind(sea_df , sea_min_df)
+  
+  
+}
+
+distance_df
+
+
+distance_df %>% 
+  ggplot(aes(x = minute, y = delta_distance_per_window, color = game_id)) +
+  geom_line() + 
+  geom_point() + 
+  labs(title = "The Delta Distance Trajectories for 8 games binned per each minute")
+  
+
+sea_df %>% 
+  ggplot(aes(x = minute, y = sea_traj, color = game_id)) +
+  geom_line() + 
+  geom_point() + 
+  labs(title = "The SEA Distance Trajectories for 8 games binned per each minute")
+
+```
+
+
+```{r}
+
+distance_df %>% 
+  ggplot(aes(x = minute, y = delta_distance_per_window, color = game_id)) +
+  geom_line() + 
+  geom_point() + 
+  labs(title = "The Delta Distance Trajectories for 8 games binned per each minute")
+
+```
+
+
+
+
+## DTW 
+
+```{r}
+
+## I can swap out a different clustering method later
+
+# library(dtw)
+# 
+# dist_df <- pivot_wider(distance_df, names_from = game_id, values_from = delta_distance_per_window) %>% 
+#   dplyr::select(!minute)
+# rownames(dist_df) <- seq(1,40)
+# dist_df
+
+library(kml)
+
+
+dist_df <- pivot_wider(distance_df, names_from = minute, values_from = delta_distance_per_window)
+dist_df <- pivot_wider(sea_df, names_from = minute, values_from = sea_traj)
+
+
+
+dist_df <- as.data.frame(dist_df)
+mycldf <- kml::cld(dist_df, timeInData = 2:41)
+
+kml::kml(mycldf, nbRedrawing = 10)
+
+kml::choice(mycldf)
+
+dist_df$clust <- getClusters(mycldf, 3)
+
+a <- dplyr::select(dist_df, game_id, clust)
+
+ndistance_df <- merge(distance_df, a, by = "game_id", all.x = TRUE)
+
+ndistance_df %>% 
+  # filter(clust == "B") %>% 
+  ggplot(aes(x = minute, y = delta_distance_per_window, color = game_id)) +
+  geom_line() + 
+  geom_point() + 
+  facet_wrap(~clust, ncol = 1) +
+  labs(title = "The Delta Distance Trajectories for 8 games clustered using KML")
+
+sea_alone_cluster <- a
+
+merge(sea_alone_cluster, a, by ="game_id", all.x = TRUE)
+
+# dist(distance_df, method = "DTW")
+# 
+# sc <- read.table("synthetic_control.data.txt", header = F, sep = "")
+# n <-10
+# s <-sample(1:100, n)
+# idx <- c(s, 100+s, 200+s, 300+s, 400+s, 500+s)
+# sample2 <- sc[idx,]
+# 
+# n <-  40
+# observedLabels <- c(rep(1,n), rep(2,n), rep(3,n), rep(4,n), rep(5,n), rep(6,n), rep(7,n), rep(8,n))
+# 
+# distMatrix <- dist(dist_df, method="DTW")
+# 
+# hc <- hclust(distMatrix, method="average")
+# plot(hc, main="")
+
+```
+
+## histogramming based on the clusters
+
+```{r}
+
+clust_game_id <-filter(a, clust == "A")$game_id
+
+c_sea_games <- merge(sea_wgames, a, by="game_id", all.x = TRUE)
+
+c_sea_games %>% 
+  filter(period_number < 5 & clust %in% c("A", "B", "C") & wl_abbrv == "SEA (W)") %>% 
+  ggplot(aes(x = distance, color = clust)) +
+  geom_freqpoly(aes(y = after_stat(density))) +
+  facet_wrap(~ period_display_value, ncol = 2) +
+  labs(title = "histogram of 3 clusters per quarter basis")
+
+
+
+### histogramed each quarter based on each game
+c_sea_games %>% 
+  filter(period_number < 5 & wl_abbrv == "SEA (W)") %>% 
+  ggplot(aes(x = distance, color = game_title)) +
+  geom_freqpoly(aes(y = after_stat(density))) +
+  facet_wrap(~ period_display_value, ncol = 2) +
+  labs(title = "histogram of 3 clusters per quarter basis")
+
+c_sea_games %>% 
+  filter(distance > 40)
+
+```
+
+```{r}
+g1 <- c_sea_games %>% 
+  filter(period_number < 5 & wl_abbrv == "SEA (W)") %>% 
+  ggplot(aes(x = coordinate_x)) +
+  geom_freqpoly(aes(y = after_stat(density))) +
+  facet_wrap(~ period_display_value, ncol = 2) +
+  labs(title = "histogram of X coordinate for shots")
+
+
+g2 <- c_sea_games %>% 
+  filter(period_number < 5 & wl_abbrv == "SEA (W)") %>% 
+  ggplot(aes(x = coordinate_y)) +
+  geom_freqpoly(aes(y = after_stat(density))) +
+  facet_wrap(~ period_display_value, ncol = 2) +
+  labs(title = "histogram of Y coordinate for shots")
+
+
+c_sea_games %>% 
+  filter(period_number < 5 & wl_abbrv == "SEA (W)") %>% 
+  ggplot(aes(x = distance)) +
+  geom_histogram(aes(y = after_stat(density))) +
+  facet_wrap(~period_display_value, ncol = 2) +
+  labs(title = "distance for SEA over the 8 games they won")
+
+library(patchwork)
+
+g1 + g2
+
+sea_wgames <- sea_wgames %>% 
+  mutate(coordinate_x = (coordinate_x -25))
+
+sea_wgames %>% 
+  filter(wl_abbrv == "SEA (W)" & period_number < 5) %>% 
+  ggplot() + 
+  geom_hex(binwidth = c(2,2), aes(x = coordinate_x, y = coordinate_y)) + 
+  scale_fill_gradient(low = "darkblue", high = "darkorange") +
+  facet_wrap(~ period_display_value)
+  # geom_density2d(aes(x = coordinate_x, y = coordinate_y))
+
+
+sea_wgames <- sea_wgames %>% 
+  mutate(theta = acos(coordinate_x / distance) * (180 / pi))
+
+
+####### histograms of the change in shooting angle
+
+sea_wgames %>% 
+  filter(wl_abbrv == "SEA (W)") %>% 
+  ggplot() +
+  geom_histogram(aes(x = theta), binwidth = 5) +
+  # geom_density(aes(x = theta)) + 
+  facet_wrap(~ period_display_value, ncol = 3) +
+  scale_x_continuous(breaks = seq(0, 180, by = 30)) +
+  labs(title = "Histograms of the Shooting Angle over the 4 quarters")
+  # coord_polar(start = 0, direction=1)
+
+sea_wgames %>% 
+  filter(wl_abbrv == "SEA (W)") %>% 
+  ggplot() +
+  geom_freqpoly(aes(x = theta, color = game_title), binwidth = 5) +
+  # geom_density(aes(x = theta)) + 
+  facet_wrap(~ period_display_value, ncol = 3) +
+  scale_x_continuous(breaks = seq(0, 180, by = 30)) +
+  labs(title = "Histograms of the Shooting Angle over the 4 quarters")
+
+
+
+
+
+
+```
+
+
+
+
+## investigating SEA(W) vs MIN(L)
+
+```{r}
+
+sg <- sea_wgames %>% 
+  filter(game_id == "401320578")
+  
+
+sg %>% 
+  ggplot() +
+  geom_freqpoly(aes(x = theta, color = wl_abbrv), binwidth = 5) +
+  # geom_density(aes(x = theta)) + 
+  facet_wrap(~ period_display_value, ncol = 2) +
+  # scale_x_continuous(breaks = seq(0, 180, by = 30)) +
+  scale_x_reverse(breaks = seq(180, 0, by = -30)) +
+  labs(title = "SEA (W) vs MIN (L) THETA plot")
+
+
+sg %>% 
+  ggplot() +
+  geom_freqpoly(aes(x = distance, color = wl_abbrv), binwidth = 5) +
+  # geom_density(aes(x = theta)) + 
+  facet_wrap(~ period_display_value, ncol = 2) +
+  labs(title = "SEA (W) vs MIN (L) Distance plot")
+
+sg  %>% 
+  filter(period_number == 1) %>%
+  ggplot() + 
+  geom_point(aes(x = theta, y = time_corrected, shape = wl_abbrv, size = scoring_play, color = wl_abbrv)) +
+  scale_shape_manual(values=c(16, 17, 19)) +
+  scale_y_time() +
+  scale_x_reverse(breaks = seq(180, 0, by = -30)) +
+  labs(title = "Development of the angle through quarter 1",  y = "Time", x = "Theta") + 
+  theme_bw()
+
+
+
+
+sg %>% 
+  ggplot() +
+  geom_vline(xintercept = 600, linetype="dotted", color = "blue", size=1.5) + 
+  geom_vline(xintercept = 600*2, linetype="dotted", color = "blue", size=1.5) + 
+  geom_vline(xintercept = 600*3, linetype="dotted", color = "blue", size=1.5) + 
+  geom_point(aes(x = time_corrected, y = away_score , color = "away")) + 
+  geom_point(aes(x = time_corrected, y = home_score , color = "home")) + 
+  scale_x_time() +
+  labs(title = "Score Over time") + 
+  theme_bw()
+
+sg  %>%
+  ggplot() +
+  geom_hline(yintercept = 600, , color = "blue", size=1.5, alpha = 0.3) +
+  geom_hline(yintercept = 600*2, , color = "blue", size=1.5, alpha = 0.3)+
+  geom_hline(yintercept = 600*3, , color = "blue", size=1.5, alpha = 0.3) +
+  geom_point(aes(x = theta, y = time_corrected, shape = wl_abbrv, size = scoring_play, color = wl_abbrv)) +
+  scale_shape_manual(values=c(16, 17, 19)) +
+  scale_y_time() +
+  scale_x_reverse(breaks = seq(180, 0, by = -30)) +
+  facet_wrap(~ game_title, ncol = 2) +
+  labs(title = "Development of the angle through the 4 quarters for 1 game", y = "Time", x = "Theta") +
+  theme_bw()
+
+
+```
+
+
+```{r, fig.width=6, fig.height=4}
+
+library(ggplot2)
+library(reshape2)
+library(grid)
+
+set.seed(123)
+
+require(ggplot2)
+
+
+sg %>% 
+  filter(wl_abbrv == "SEA (W)") %>%
+  ggplot() + geom_histogram(aes(x = theta, fill = wl_abbrv),
+                                 binwidth = 5) +
+  scale_fill_manual(values = c("blue")) +
+    scale_x_continuous(
+        expand = c(0, 0),
+        breaks = seq(180, 0, -30),
+        limits = c(0, 360)
+    ) +
+    coord_polar(theta = "x",
+                start = 3 * pi / 2,
+                direction = -1) +
+    theme_bw() +
+    facet_wrap( ~ period_display_value, ncol = 2) +
+    
+    theme(
+        panel.border = element_blank(),
+        axis.title.y = element_text(hjust = 0.75, vjust = 3),
+        legend.position = "top"
+    )
+
+
+
+# g = ggplotGrob(p)
+# 
+# grid.newpage()
+# pushViewport(viewport(height = 1, width = 1, clip="on"))
+# grid.draw(g)
+# grid.rect(x = 0, y = -0.05, height = 1, width = 2, gp = gpar(col="white"))
+# grid.rect(x = .5, y = .7, width = .6, height = .55, gp = gpar(lwd = 1, col = "black", fill = NA))
+
+```
+
+
+
+```{r}
+
+library(circular)
+
+data<- c(-0.188,-0.742,-0.953,-0.948,-0.953,-1.187,-0.9327200,-0.855,-  0.024,1.303,-1.041,-1.068,-1.066,1.442,1.150,0.965,0.665,0.649,0.984,-1.379,-0.584,-0.573,-0.357,-0.237,-0.287,-0.486,-0.783,-0.298,0.849,1.088,-1.003,-0.952,-0.776,-0.811,-0.880)
+
+freq <- diff(colSums(outer( data %% (2*pi), (1:24)*pi/12,"<"))) / length(data)
+r.max <- sqrt(max(freq))
+
+#-----------------------------------------------------------------
+# Plot the half circle:
+
+lab.width  <- 0.15*r.max
+lab.height <- 0.15*r.max
+
+plot( c(-r.max,r.max), c(0,0),
+      axes=FALSE,
+      ylim=c(0,r.max+lab.height),
+      xlim=c(-r.max-lab.width,r.max+lab.width),
+      xlab="", ylab="", type="l")
+
+for ( i in 0:(5*12-1) )
+{
+  psi <- i*pi/(5*12)
+  x1 <- r.max*cos(psi)
+  y1 <- r.max*sin(psi)
+  x2 <- r.max*cos(psi+pi/(5*12))
+  y2 <- r.max*sin(psi+pi/(5*12))
+
+  lines( c(x1,x2), c(y1,y2), type="l")
+
+  if (i %% 5 == 0) { lines( x1*c(1,0.95), y1*c(1,0.95), type="l" ) }
+}
+
+par(cex=2.0)
+
+text( x = c(-r.max,0,r.max),
+      y = c(0,r.max,0),
+      labels = c("-pi/2","0","pi/2"),
+      pos = c(2,3,4))
+
+#------------------------------------------------------------
+# Plot the distribution, but without the circle:
+
+rose.diag(data,
+          bins = 24,
+          rotation = "clock",
+          tcl.text = NA,
+          ticks = FALSE,
+          zero = pi/2,
+          control.circle = circle.control( col="white" ),
+          add = TRUE )
+
+
+```
+
+
+
+```{r}
+
+library(gganimate)
+
+g <- c_sea_games %>% 
+  filter(period_number < 5 & wl_abbrv == "SEA (W)" & period_number == 1) %>% 
+  ggplot(aes(x = distance)) +
+  geom_histogram(aes(y = after_stat(density)), binwidth = 1) +
+  labs(title = "distance for SEA over the 7 games they won {frame_along}")
+
+g + transition_reveal(sequence_number, keep_last = TRUE)
+
+```
+
+
+
+
+
+## 
 
 ```{r}
 
