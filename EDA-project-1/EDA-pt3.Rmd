@@ -66,6 +66,7 @@ wsd <- wsd %>%
 
 ## grab the teams with the most wins
 ### cycle through each game, increase the win of each team by 1
+sea_won_games = c()
 
 payload = c()
 for (team in list_teams_abv) {
@@ -94,12 +95,23 @@ for (game in list_of_games){
   
   if ( final_score_home > final_score_away) {
     payload[home_team_abbrev] = payload[home_team_abbrev] + 1
+      if(home_team_abbrev == "SEA"){
+        print(game)
+        sea_won_games = c(sea_won_games, game)
+      }
   } else {
-    payload[home_team_abbrev] = payload[home_team_abbrev] + 1
+    payload[away_team_abbrev] = payload[away_team_abbrev] + 1
+    if(away_team_abbrev == "SEA"){
+      sea_won_games = c(sea_won_games, game)
+        print(game)
+    }
   }
+  
+
   
 }
 
+sea_won_games
 data.frame(payload) %>% arrange(desc(payload))
 
 ## the top teams are SEA, CHI, NY, MIN, WSH, CONN
@@ -109,17 +121,52 @@ data.frame(payload) %>% arrange(desc(payload))
 ```{r}
 
 sea_game <- wsd %>% 
-  filter(home_team_abbrev == "SEA" | away_team_abbrev == "SEA") 
+  filter(home_team_abbrev == "SEA" | away_team_abbrev == "SEA") %>% 
+  mutate(game_id = as.factor(game_id), period_number = as.factor(period_number))
 
 
 ## point chart of the seattle in quarter 1, color base on game, size based on success
 
+sea_game %>%
+  filter(period_number == 1 | period_number == 2) %>%
+  filter(coordinate_y < 30) %>% 
+  ggplot() +
+  geom_point(aes(x = coordinate_x, y = coordinate_y, alpha = 0.5, color = period_number)) +
+  geom_density2d(aes(x = coordinate_x, y = coordinate_y, adjust = 30, color = period_number)) + 
+  labs(title = "The change in shooting locations for SEA between quarter 1 and 2")
+
+sea_game %>%
+  filter(period_number == 3 | period_number == 4) %>%
+  filter(coordinate_y < 30) %>% 
+  ggplot() +
+  geom_point(aes(x = coordinate_x, y = coordinate_y, alpha = 0.5, color = period_number)) +
+  geom_density2d(aes(x = coordinate_x, y = coordinate_y, adjust = 30, color = period_number)) + 
+  labs(title = "The change in shooting locations for SEA between quarter 3 and 4")
 
 
+
+sea_game %>%
+  filter(period_number == 1 | period_number == 2) %>%
+  filter(coordinate_y < 30) %>% 
+  ggplot(aes(x = coordinate_x, y = coordinate_y)) +
+  geom_hex(binwidth = c(2,2)) + 
+  scale_fill_gradient(low = "darkblue", high = "darkorange") +
+  labs(title = "The change in shooting locations for SEA between quarter 1 and 2")
+
+
+sea_game %>%
+  filter(period_number == 3 | period_number == 4) %>%
+  ggplot(aes(x = distance, color = period_number)) +
+  geom_freqpoly() +
+  theme_bw()
 
 ```
 
+contour lines
 
+How the shooting strategies change for the SEATTLE team (strongest team)
+Analyze the 7 win games for the Seattle team
+General overall shooting locations
 
 
 

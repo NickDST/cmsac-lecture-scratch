@@ -1,0 +1,218 @@
+---
+title: "HclustEDA"
+author: "me"
+date: "6/14/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Loading in the data
+
+```{r}
+
+library(wehoop)
+library(tidyverse)
+library(lubridate)
+library(ggdendro)
+
+## Preparing the data ----------------
+
+
+wnba_pbp_data <- load_wnba_pbp(2021)
+
+# Get the shots and clean this data a bit:
+wnba_shots_data <- wnba_pbp_data %>%
+  filter(shooting_play)
+# Remove unnecessary columns:
+wnba_shots_data <- wnba_shots_data %>%
+  dplyr::select(-shooting_play, -id, -participants_2_athlete_id,
+                -type_abbreviation, -season, -season_type, 
+                -home_team_spread, -game_spread, -home_favorite)
+
+# write.csv(wnba_shots_data,'WNBA_shot_data.csv')
+## Loading the data for a single game ----------------
+
+wsd <-wnba_shots_data
+
+wsd <- wsd %>% 
+  filter(coordinate_x > 0 & coordinate_y > 0) %>% 
+  mutate(coordinate_x = coordinate_x - 25) %>% 
+  mutate(distance = sqrt((coordinate_x)^2 + coordinate_y^2)) %>% 
+  mutate(theta = acos(coordinate_x / distance) * (180 / pi)) %>% 
+  mutate(sequence_number = as.integer(sequence_number)) %>% 
+  mutate(seconds_elapsed_game = 600 - (as.integer(clock_minutes) * 60 + as.integer(clock_seconds))) %>% 
+  mutate(seconds_with_period = (period_number - 1) * 10 * 60 + seconds_elapsed_game) %>% 
+  mutate(time_corrected = seconds_to_period(seconds_with_period))
+  
+
+```
+
+
+```{r}
+
+## additional filtering
+wsd <- wsd %>% 
+  filter(period_number < 5 & distance < 40)
+
+
+bucket_length = 1
+max_bucket = 40
+
+wsd$cutDist <-cut(wsd$distance, breaks = seq(0, max_bucket, by = bucket_length))
+num_buckets = length(unique(wsd$cutDist))
+
+distance_percent_df <- data.frame()
+team_list = unique(wsd$team_id)
+
+for (curr_team_id in team_list){
+  print(paste("=> current teamid: ", curr_team_id))
+
+  score_percentage = c()
+  for (i in seq(length(levels(wsd$cutDist)))) {
+    
+    # i = 2
+    bucket <- levels(wsd$cutDist)[i]
+    # print(bucket)
+    curr <- wsd %>% 
+      filter(cutDist == bucket & team_id == curr_team_id)
+    
+    curr_team_abbrv <- filter(wsd, home_team_id == curr_team_id)$home_team_abbrev[1]
+    
+    if(nrow(curr) > 2){
+        hit_count <- nrow(filter(curr, scoring_play == TRUE))
+        miss_count <- nrow(filter(curr, scoring_play == FALSE))
+        percentage <- hit_count / (hit_count + miss_count)
+        # print(percentage)
+        score_percentage[i] <- percentage
+    } else {
+        score_percentage[i] <- 0.0
+    }
+  }
+  currdf <- data.frame("Bucket" = levels(wsd$cutDist), "percent" = score_percentage, "team_id" = curr_team_abbrv, "idx" = seq(1, length(score_percentage)))
+  distance_percent_df <- rbind(distance_percent_df, currdf)
+}
+
+distance_percent_df %>% 
+  ggplot() + 
+  geom_line(aes(x = idx, y = percent, color = team_id)) +
+  labs(title = "Binned Shooting Percentage for each team binned per distance", x = "Feet from Hoop", y = "Shooting Percentage")
+
+```
+
+
+# Now calculating the bin weights and the pairwise distance function
+
+
+```{r}
+
+## bin weights based on the number of shots that were made
+bin_weights = c()
+total_made_shots <- nrow(filter(wsd , scoring_play == TRUE))
+
+for (i in seq(length(levels(wsd$cutDist)))) {
+  # i <- 2
+  bucket <- levels(wsd$cutDist)[i]
+  # print(bucket)
+  curr <- wsd %>% 
+    filter(cutDist == bucket & scoring_play == TRUE)
+  
+  percentage_bucket <- nrow(curr) / total_made_shots
+  
+  bin_weights[i] <- percentage_bucket
+}
+
+plot(bin_weights)
+
+## pairwise distance function ----
+
+calc_traj_pairwise <- function(df, bin_weights ,team_id1, team_id2){
+  
+  num_bins = length(unique(df$idx))
+  total_distance <- 0
+  
+  #pairwise distance between each datapoint and adding them together
+  for(i in seq(num_bins)){
+    team1_d <- df %>% 
+      filter(team_id == team_id1 & idx == i)
+    
+    team2_d <- df %>% 
+      filter(team_id == team_id2 & idx == i)
+    
+    bin_euc_distance <- bin_weights[i] * (team1_d$percent - team2_d$percent)^2 ## bin_weight
+    
+    total_distance = total_distance + bin_euc_distance
+  }
+  total_distance = sqrt(total_distance)
+  
+  return (total_distance)
+}
+
+## sanity check
+## calc_traj_pairwise(distance_percent_df, bin_weights, "SEA", "SEA")
+
+
+team_abbrv_list <- unique(wsd$away_team_abbrev)
+
+team_pairwise_dist <- map_dfr(team_abbrv_list, 
+        function(team1){
+          map_dfr(team_abbrv_list, 
+                  function(team2){
+                    tibble("team1" = team1, "team2" = team2, 
+                           "distance" = calc_traj_pairwise(distance_percent_df, bin_weights, team1, team2))
+          })
+        }
+      )
+
+## pivot wider
+dist_wider <- pivot_wider(team_pairwise_dist, names_from = team2, values_from = distance)
+
+## removing the first label column called team1, then setting it into a matrix
+dist_matrix <- dist_wider %>% 
+  dplyr::select(-team1) %>% 
+  as.matrix()
+
+## setting the row names to be the abbrv list, which is the same order as before
+rownames(dist_matrix) <- team_abbrv_list
+
+## creating a distance object out of it
+team_dist <- as.dist(dist_matrix)
+
+## displaying the final distance object we can use for clustering
+team_dist
+
+```
+
+
+## hierarchical clustering
+
+```{r}
+
+team_hclust <- hclust(team_dist, method = "complete")
+
+## we can take a quick look at the dendrogram and see the different teams
+plot(team_hclust)
+
+## assign the lookup table based on how many clusters we want
+team_cluster_lookup <- tibble(team_names = team_abbrv_list , team_cluster = as.factor(cutree(team_hclust, k = 4)))
+
+## annotating the original distance_percent_df with the clusters assigned
+annotated_distance_percent_df <- distance_percent_df %>% 
+  left_join(team_cluster_lookup, by = c("team_id" = "team_names"))
+
+## graph the clusters
+annotated_distance_percent_df %>% 
+  ggplot() + 
+  geom_line(aes(x = idx, y = percent, color = team_cluster, group = team_id, alpha = 0.5)) +
+  # scale_x_continuous(breaks = seq(0, )) +
+  labs(title = "Binned Shooting Percentage for each team binned per distance", x = "Feet from Hoop", y = "Shooting Percentage")
+
+```
+
+
+
+
+

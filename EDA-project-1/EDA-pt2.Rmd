@@ -213,6 +213,7 @@ games_of_interest <-  c(401320570)
 distance_df <- data.frame()
 sea_df <- data.frame()
 
+
 for ( curr_game_id in total_games){
   print(curr_game_id)
   
@@ -326,6 +327,7 @@ dist_df$clust <- getClusters(mycldf, 3)
 a <- dplyr::select(dist_df, game_id, clust)
 
 ndistance_df <- merge(distance_df, a, by = "game_id", all.x = TRUE)
+
 
 ndistance_df %>% 
   # filter(clust == "B") %>% 
@@ -462,7 +464,7 @@ sea_wgames %>%
 
 
 
-## investigating SEA(W) vs MIN(L)
+## investigating SEA(W) vs MIN(L) : GAMEID 401320578
 
 ```{r}
 
@@ -472,7 +474,9 @@ sg <- sea_wgames %>%
 
 sg %>% 
   ggplot() +
-  geom_freqpoly(aes(x = theta, color = wl_abbrv), binwidth = 5) +
+  geom_freqpoly(aes(x = theta, color = wl_abbrv, linetype = scoring_play), binwidth = 5) +
+  scale_linetype_manual(values=c("dashed", "solid"))+
+  # scale_alpha_discrete(range = c(0.4, 1)) +
   # geom_density(aes(x = theta)) + 
   facet_wrap(~ period_display_value, ncol = 2) +
   # scale_x_continuous(breaks = seq(0, 180, by = 30)) +
@@ -482,10 +486,12 @@ sg %>%
 
 sg %>% 
   ggplot() +
-  geom_freqpoly(aes(x = distance, color = wl_abbrv), binwidth = 5) +
-  # geom_density(aes(x = theta)) + 
+  geom_freqpoly(aes(x = distance, color = wl_abbrv, linetype = scoring_play), binwidth = 5) +
+  scale_linetype_manual(values=c("dashed", "solid"))+
   facet_wrap(~ period_display_value, ncol = 2) +
   labs(title = "SEA (W) vs MIN (L) Distance plot")
+
+
 
 sg  %>% 
   filter(period_number == 1) %>%
@@ -498,31 +504,47 @@ sg  %>%
   theme_bw()
 
 
-
-
 sg %>% 
   ggplot() +
   geom_vline(xintercept = 600, linetype="dotted", color = "blue", size=1.5) + 
   geom_vline(xintercept = 600*2, linetype="dotted", color = "blue", size=1.5) + 
   geom_vline(xintercept = 600*3, linetype="dotted", color = "blue", size=1.5) + 
-  geom_point(aes(x = time_corrected, y = away_score , color = "away")) + 
-  geom_point(aes(x = time_corrected, y = home_score , color = "home")) + 
+  geom_point(aes(x = time_corrected, y = home_score , color = "MIN (L)")) + 
+  geom_point(aes(x = time_corrected, y = away_score , color = "SEA (W)")) + 
+  # scale_color_manual(c("red", "blue")) +
   scale_x_time() +
   labs(title = "Score Over time") + 
   theme_bw()
+
+
+
+
+sg %>% 
+  filter(distance <= 30) %>% 
+  ggplot() + 
+  geom_vline(xintercept = 600, , color = "blue", size=1.5, alpha = 0.3) + 
+  geom_vline(xintercept = 600*2, , color = "blue", size=1.5, alpha = 0.3)+ 
+  geom_vline(xintercept = 600*3, , color = "blue", size=1.5, alpha = 0.3) + 
+  geom_point(aes(x = time_corrected, y = distance, shape = scoring_play, size = 0.5, color = wl_abbrv)) +
+  scale_shape_manual(values=c(4, 19)) +
+  scale_x_time() +
+  labs(title = "Development of distance through the 4 quarters for 1 game", y = "Distance From Hoop", x = "Time") + 
+  theme_bw()
+
 
 sg  %>%
   ggplot() +
   geom_hline(yintercept = 600, , color = "blue", size=1.5, alpha = 0.3) +
   geom_hline(yintercept = 600*2, , color = "blue", size=1.5, alpha = 0.3)+
   geom_hline(yintercept = 600*3, , color = "blue", size=1.5, alpha = 0.3) +
-  geom_point(aes(x = theta, y = time_corrected, shape = wl_abbrv, size = scoring_play, color = wl_abbrv)) +
-  scale_shape_manual(values=c(16, 17, 19)) +
+  geom_point(aes(x = theta, y = time_corrected, shape = scoring_play, size = 0.5, color = wl_abbrv)) +
+  scale_shape_manual(values=c(4, 19)) +
   scale_y_time() +
   scale_x_reverse(breaks = seq(180, 0, by = -30)) +
   facet_wrap(~ game_title, ncol = 2) +
   labs(title = "Development of the angle through the 4 quarters for 1 game", y = "Time", x = "Theta") +
   theme_bw()
+
 
 
 ```
